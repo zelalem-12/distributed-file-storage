@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed File Storage Server</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .upload-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .custom-file-upload:hover {
+            background-color: #2980b9;
+        }
+
+        .file-name {
+            margin-top: 1rem;
+            font-size: 16px;
+            color: #333;
+            font-style: italic;
+        }
+
+        .submit-btn {
+            margin-top: 1.5rem;
+            padding: 10px 20px;
+            border: none;
+            background-color: #2ecc71;
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            background-color: #27ae60;
+        }
+
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-top: 1rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <h1>Upload Your File</h1>
+        <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+            <label for="file-upload" class="custom-file-upload">
+                Choose File
+            </label>
+            <input id="file-upload" type="file" name="file">
+            <span class="file-name" id="file-name">No file chosen</span>
+            <div class="error-message" id="error-message">Please select a file before submitting.</div>
+            <br>
+            <button type="submit" class="submit-btn">Upload</button>
+        </form>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('file-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const errorMessage = document.getElementById('error-message');
+        const uploadForm = document.getElementById('upload-form');
+
+        // Update file name when a file is selected
+        fileUpload.addEventListener('change', function() {
+            if (fileUpload.files.length > 0) {
+                fileNameDisplay.textContent = fileUpload.files[0].name;
+                errorMessage.style.display = 'none';  // Hide error if a file is selected
+            } else {
+                fileNameDisplay.textContent = "No file chosen";
+            }
+        });
+
+        // Validate the form before submission
+        uploadForm.addEventListener('submit', function(event) {
+            if (fileUpload.files.length === 0) {
+                event.preventDefault();  // Prevent form submission
+                errorMessage.style.display = 'block';  // Show error message
+            }
+        });
+    </script>
+</body>
+</html>
