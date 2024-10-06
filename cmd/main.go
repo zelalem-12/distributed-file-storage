@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/julienschmidt/httprouter"
 )
 
 type FileUpload struct {
@@ -18,11 +19,11 @@ type FileUpload struct {
 	Path string    `json:"path"`
 }
 
-func HomeHandler(w http.ResponseWriter, r *http.Request) {
+func HomeHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	http.ServeFile(w, r, "./static/index.html")
 }
 
-func UploadHandler(w http.ResponseWriter, r *http.Request) {
+func UploadHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	// Parse the Input, Type multipart/form-data
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
@@ -121,12 +122,90 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "File Uploaded Successfully \n")
 }
 
+func DownloadsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	jsonFileName := "file.json"
+	var files []FileUpload
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if _, err := os.Stat(jsonFileName); err == nil {
+		// File exists, read it
+
+		jsonFileData, err := os.ReadFile(jsonFileName)
+		if err != nil {
+			http.Error(w, "Error reading json file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Unmarshal the existing data into the Go slice
+		err = json.Unmarshal(jsonFileData, &files)
+		if err != nil {
+			http.Error(w, "Error unmarshaling JSON: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(files)
+}
+
+func DownloadHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	parsedUUID, err := uuid.Parse(ps.ByName("fileId"))
+	if err != nil {
+		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsonFileName := "file.json"
+	var files []FileUpload
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if _, err := os.Stat(jsonFileName); err == nil {
+		// File exists, read it
+
+		jsonFileData, err := os.ReadFile(jsonFileName)
+		if err != nil {
+			http.Error(w, "Error reading json file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Unmarshal the existing data into the Go slice
+		err = json.Unmarshal(jsonFileData, &files)
+		if err != nil {
+			http.Error(w, "Error unmarshaling JSON: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	var requestedFile FileUpload
+
+	for _, file := range files {
+		if file.Id == parsedUUID {
+			requestedFile = file
+			break
+		}
+	}
+	json.NewEncoder(w).Encode(requestedFile)
+}
+
 func SetupRoutes() {
 	serverPort := 8080
 	addr := fmt.Sprintf(":%d", serverPort)
-	http.HandleFunc("/", HomeHandler)
-	http.HandleFunc("/upload", UploadHandler)
-	http.ListenAndServe(addr, nil)
+
+	// Create a new router
+	router := httprouter.New()
+
+	// Define routes
+	router.GET("/", HomeHandler)
+	router.POST("/upload", UploadHandler)
+	router.GET("/downloads", DownloadsHandler)
+	router.GET("/downloads/:fileId", DownloadHandler)
+
+	// Start the server
+	if err := http.ListenAndServe(addr, router); err != nil {
+		fmt.Println("Error starting server:", err)
+		panic(err)
+	}
+
 }
 
 func main() {
