@@ -1,0 +1,116 @@
+basePath: /api/v1/
+definitions:
+  server.Response:
+    properties:
+      created_at:
+        type: string
+      extension:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      type:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://www.example.com/support
+  description: This is the API for a distributed file storage system.
+  license:
+    name: MIT
+    url: http://opensource.org/licenses/MIT
+  termsOfService: http://example.com/terms/
+  title: Distributed File Storage API
+  version: "1.0"
+paths:
+  /downloads/{id}:
+    get:
+      description: Download a file from the distributed storage system by its unique
+        ID
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Downloaded file
+          schema:
+            type: file
+        "404":
+          description: File not found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Download a file by ID
+      tags:
+      - files
+  /files:
+    get:
+      description: Retrieve metadata of all uploaded files
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of files
+          schema:
+            items:
+              $ref: '#/definitions/server.Response'
+            type: array
+        "404":
+          description: No files found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get all file metadata
+      tags:
+      - files
+  /upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple files to the distributed file storage system
+      parameters:
+      - description: Files to upload
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of uploaded file IDs
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Upload multiple files
+      tags:
+      - files
+swagger: "2.0"

@@ -33,6 +33,17 @@ func (h *FileHandler) HomeHandler(w http.ResponseWriter, r *http.Request, _ http
 	http.ServeFile(w, r, "./static/index.html")
 }
 
+// UploadFilesHandler godoc
+// @Summary Upload multiple files
+// @Description Upload multiple files to the distributed file storage system
+// @Tags files
+// @Accept  mpfd
+// @Produce json
+// @Param files formData file true "Files to upload"
+// @Success 200 {array} string "List of uploaded file IDs"
+// @Failure 400 {string} string "Bad Request"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /upload [post]
 func (h *FileHandler) UploadFilesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	if err := r.ParseMultipartForm(1 << 30); err != nil {
@@ -160,6 +171,15 @@ func (h *FileHandler) UploadFilesHandler(w http.ResponseWriter, r *http.Request,
 	json.NewEncoder(w).Encode(fileIDs)
 }
 
+// GetFilesDataHandler godoc
+// @Summary Get all file metadata
+// @Description Retrieve metadata of all uploaded files
+// @Tags files
+// @Produce json
+// @Success 200 {array} Response "List of files"
+// @Failure 404 {string} string "No files found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /files [get]
 func (h *FileHandler) GetFilesDataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	files, err := h.FileService.GetAll(context.Background())
@@ -188,6 +208,16 @@ func (h *FileHandler) GetFilesDataHandler(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(response)
 }
 
+// DownloadFileByIDHandler godoc
+// @Summary Download a file by ID
+// @Description Download a file from the distributed storage system by its unique ID
+// @Tags files
+// @Produce octet-stream
+// @Param id path string true "File ID"
+// @Success 200 {file} file "Downloaded file"
+// @Failure 404 {string} string "File not found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /downloads/{id} [get]
 func (h *FileHandler) DownloadFileByIDHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	parsedUUID, err := uuid.Parse(ps.ByName("id"))
