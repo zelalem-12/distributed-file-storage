@@ -36,7 +36,7 @@ func (h *FileHandler) HomeHandler(w http.ResponseWriter, r *http.Request, _ http
 func (h *FileHandler) UploadFilesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	if err := r.ParseMultipartForm(1 << 30); err != nil {
-		http.Error(w, "Failed to parse multipart form: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -164,7 +164,11 @@ func (h *FileHandler) GetFilesDataHandler(w http.ResponseWriter, r *http.Request
 
 	files, err := h.FileService.GetAll(context.Background())
 	if err != nil {
-		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(files) == 0 {
+		http.Error(w, "record not found", http.StatusNotFound)
 		return
 	}
 	response := []Response{}
@@ -188,13 +192,13 @@ func (h *FileHandler) DownloadFileByIDHandler(w http.ResponseWriter, r *http.Req
 
 	parsedUUID, err := uuid.Parse(ps.ByName("id"))
 	if err != nil {
-		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	fileData, err := h.FileService.GetById(context.Background(), parsedUUID)
 	if err != nil {
-		http.Error(w, "Error retrieving file: "+err.Error(), http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -205,7 +209,7 @@ func (h *FileHandler) DownloadFileByIDHandler(w http.ResponseWriter, r *http.Req
 
 	err = utils.DownloadFileInParallel(fileData, mergedWriter)
 	if err != nil {
-		http.Error(w, "Error downloading file: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }

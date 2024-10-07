@@ -8,19 +8,17 @@ import (
 )
 
 func InitPostgresDB(cfg Config) (*gorm.DB, error) {
+
+	host := cfg.POSTGRES_HOST
 	port := cfg.POSTGRES_PORT
-	username := cfg.POSTGRES_USER
+	user := cfg.POSTGRES_USER
 	password := cfg.POSTGRES_PASSWORD
-	dbname := cfg.POSTGRES_DATABASE
+	dbName := cfg.POSTGRES_DATABASE
 
-	//user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai
-
-	//dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local", username, password, dbname, host, port, dbname)
-
-	dsn := fmt.Sprintf("user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Shanghai", username, password, dbname, port)
+	connectionString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbName)
 
 	db, err := gorm.Open(postgres.New(postgres.Config{
-		DSN:                  dsn,
+		DSN:                  connectionString,
 		PreferSimpleProtocol: true, // disables implicit prepared statement usage
 	}), &gorm.Config{})
 	if err != nil {

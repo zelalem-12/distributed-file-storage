@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src  
+      - ./uploads:/app/uploads  
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    environment:
+      - ENV=${ENV}
+      - SERVER_PORT=${SERVER_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    restart: always   
+    command: ["go", "run", "./cmd/main.go"]
+
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    restart: always 
+
+volumes:
+  postgres_data:

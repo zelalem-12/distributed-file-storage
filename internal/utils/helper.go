@@ -38,7 +38,14 @@ func DownloadFileInParallel(fileData *domain.File, writer io.Writer) error {
 		numParts++
 	}
 
-	openFile, err := os.Open(fileData.GetPath())
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	absoluteFilePath := filepath.Join(workingDirectory, fileData.GetPath())
+
+	openFile, err := os.Open(absoluteFilePath)
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
 	}
