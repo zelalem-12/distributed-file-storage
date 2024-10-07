@@ -4,19 +4,19 @@ Distributed File Storage Server is a Go-based web application that allows users 
 
 ## Features
 
-. File Upload: Upload multiple files via multipart form data.
-. File Metadata Storage: Store file metadata (name, size, type) in PostgreSQL.
-. Parallel Download: Efficient parallel file download mechanism.
-. API Documentation: Automatically generated Swagger documentation.
-. Docker Support: Easily deployable with Docker.
+1. File Upload: Upload multiple files via multipart form data.
+2. File Metadata Storage: Store file metadata (name, size, type) in PostgreSQL.
+3. Parallel Download: Efficient parallel file download mechanism.
+4. API Documentation: Automatically generated Swagger documentation.
+5. Docker Support: Easily deployable with Docker.
 
 ## Technologies Used
 
-. Go (Golang)
-. PostgreSQL
-. Swag (for Swagger documentation)
-. Docker
-. Httprouter (for routing)
+1. Go (Golang)
+2. PostgreSQL
+3. Swag (for Swagger documentation)
+4. Docker
+5. Httprouter (for routing)
 
 ## Table of Contents
 
@@ -123,3 +123,15 @@ swag init --dir ./cmd,./internal/server --generalInfo main.go --output ./docs/op
 5. POSTGRES_HOST: PostgreSQL host (e.g., localhost).
 6. POSTGRES_PORT: PostgreSQL port (e.g., 5432).
 7. ENV: Application environment (development, production).
+
+## Note
+
+To test the file upload API with multiple file selection Please use the HTML form I serve on the home route
+
+```bash
+http://localhost:8080
+```
+
+## Contribution
+
+Feel free to report any issues, give feedback and suggestions.
