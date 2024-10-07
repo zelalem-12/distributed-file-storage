@@ -31,9 +31,9 @@ Distributed File Storage Server is a Go-based web application that allows users 
 
 ### Prerequisites
 
-. Go 1.23+
-. PostgreSQL 14+
-. Docker (optional, for containerized deployment)
+1. Go 1.23+
+2. PostgreSQL 14+
+3. Docker (optional, for containerized deployment)
 
 ### Setup
 
