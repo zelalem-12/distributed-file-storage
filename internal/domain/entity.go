@@ -11,12 +11,13 @@ type File struct {
 	id        uuid.UUID
 	name      string
 	path      string
+	_type     string
+	size      int64
+	extension string
 	createdAt *time.Time
-	updatedAt *time.Time
-	deletedAt *time.Time
 }
 
-func CreateFile(name, path string) (*File, error) {
+func CreateFile(name, path, _type, extension string, size int64) (*File, error) {
 
 	now := time.Now()
 	fileID := uuid.New()
@@ -26,12 +27,13 @@ func CreateFile(name, path string) (*File, error) {
 	if err := file.SetName(name); err != nil {
 		return nil, err
 	}
-	if err := file.SetPath(name); err != nil {
+	if err := file.SetPath(path); err != nil {
 		return nil, err
 	}
-
+	file.SetType(_type)
+	file.SetSize(size)
+	file.SetExtension(extension)
 	file.SetCreatedAt(&now)
-	file.SetUpdatedAt(&now)
 
 	return file, nil
 }
@@ -54,17 +56,18 @@ func (file *File) SetPath(path string) error {
 	file.path = path
 	return nil
 }
+func (file *File) SetType(_type string) {
+	file._type = _type
+}
+func (file *File) SetSize(size int64) {
+	file.size = size
+}
+func (file *File) SetExtension(extension string) {
+	file.extension = extension
+}
 
 func (file *File) SetCreatedAt(createdAt *time.Time) {
 	file.createdAt = createdAt
-}
-
-func (file *File) SetUpdatedAt(updatedAt *time.Time) {
-	file.updatedAt = updatedAt
-}
-
-func (file *File) SetDeletedAt(deletedAt *time.Time) {
-	file.deletedAt = deletedAt
 }
 
 func (file *File) GetID() uuid.UUID {
@@ -78,14 +81,16 @@ func (file *File) GetName() string {
 func (file *File) GetPath() string {
 	return file.path
 }
+func (file *File) GetType() string {
+	return file._type
+}
+func (file *File) GetSize() int64 {
+	return file.size
+}
+func (file *File) GetExtension() string {
+	return file.extension
+}
+
 func (file *File) GetCreatedAt() *time.Time {
 	return file.createdAt
-}
-
-func (file *File) GetUpdatedAt() *time.Time {
-	return file.updatedAt
-}
-
-func (file *File) GetDeletedAt() *time.Time {
-	return file.deletedAt
 }

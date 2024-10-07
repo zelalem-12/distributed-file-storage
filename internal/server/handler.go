@@ -1,21 +1,22 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-
-	// "myproject/internal/services"
-	"context"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/zelalem-12/distributed-file-storage/internal/domain"
 	"github.com/zelalem-12/distributed-file-storage/internal/services"
+	"github.com/zelalem-12/distributed-file-storage/internal/utils"
 )
 
 type FileHandler struct {
@@ -32,154 +33,135 @@ func (h *FileHandler) HomeHandler(w http.ResponseWriter, r *http.Request, _ http
 	http.ServeFile(w, r, "./static/index.html")
 }
 
-func (h *FileHandler) GetFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (h *FileHandler) UploadFilesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	parsedUUID, err := uuid.Parse(ps.ByName("id"))
-	if err != nil {
-		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	file, err := h.FileService.GetById(context.Background(), parsedUUID)
-	if err != nil {
-		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-
-	responseDTO := &Response{
-		Id:        file.GetID(),
-		Name:      file.GetName(),
-		Path:      file.GetPath(),
-		CreatedAt: file.GetCreatedAt().Format("006-01-02 15:04:05"),
-	}
-	json.NewEncoder(w).Encode(responseDTO)
-}
-
-func (h *FileHandler) UploadHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	// Parse the Input, Type multipart/form-data
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	if err := r.ParseMultipartForm(1 << 30); err != nil {
 		http.Error(w, "Failed to parse multipart form: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	//Retrive file from form data
-
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Failed to retrieve file from form-data: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	extention := filepath.Ext(handler.Filename)
-
-	fileName := strings.TrimSuffix(handler.Filename, extention)
-
-	newFileFullName := fmt.Sprintf("%s_*%s", fileName, extention)
-
-	newFile, err := os.CreateTemp("uploads", newFileFullName)
-	if err != nil {
-		http.Error(w, "Failed to create a new file on server: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer newFile.Close()
-
-	uploadedFileContentInBytes, err := io.ReadAll(file)
-	if err != nil {
-		http.Error(w, "Failed to create a new file on server: "+err.Error(), http.StatusInternalServerError)
+	if r.MultipartForm == nil || r.MultipartForm.File == nil {
+		http.Error(w, "Invalid multipart form", http.StatusBadRequest)
 		return
 	}
 
-	newFile.Write(uploadedFileContentInBytes)
-
-	filePath := newFile.Name()
-	newFileObject, err := domain.CreateFile(strings.Split(filePath, "/")[1], filePath)
-
-	if err != nil {
-		http.Error(w, "Failed to create a new file object: "+err.Error(), http.StatusInternalServerError)
+	formFiles := r.MultipartForm.File["files"]
+	if len(formFiles) == 0 {
+		http.Error(w, "No files uploaded", http.StatusBadRequest)
 		return
 	}
 
-	savedData, err := h.FileService.Create(context.Background(), newFileObject)
-	if err != nil {
-		http.Error(w, "Failed to persist a new file : "+err.Error(), http.StatusInternalServerError)
+	var wg sync.WaitGroup
+	fileIDsChan := make(chan uuid.UUID, len(formFiles))
+	errorChan := make(chan error, 1)
+
+	var hasErrorOccurred bool
+	var errOccurred error
+
+	for _, formFile := range formFiles {
+		wg.Add(1)
+
+		go func(formFile *multipart.FileHeader) {
+			defer wg.Done()
+
+			if formFile == nil {
+				errorChan <- fmt.Errorf("nil formFile detected")
+				return
+			}
+
+			file, err := formFile.Open()
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to retrieve file from form-data: %w", err)
+				return
+			}
+			defer file.Close()
+
+			extension := filepath.Ext(formFile.Filename)
+
+			newFile, err := os.CreateTemp("uploads", fmt.Sprintf("%s_*%s", strings.TrimSuffix(formFile.Filename, extension), extension))
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to create a new file on server: %w", err)
+				return
+			}
+			defer newFile.Close()
+
+			uploadedFileContentInBytes, err := io.ReadAll(file)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to read file content: %w", err)
+				return
+			}
+
+			_, err = newFile.Write(uploadedFileContentInBytes)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to write file content to new file: %w", err)
+				return
+			}
+			filePath := newFile.Name()
+
+			fileSize, fileType, fileExtension, err := utils.GetFileInfo(newFile.Name())
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to get file infomration: %w", err)
+				return
+			}
+
+			newFileObject, err := domain.CreateFile(strings.Split(filePath, "/")[1], filePath, fileType, fileExtension, fileSize)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to create a new file object: %w", err)
+				return
+			}
+
+			if newFileObject == nil {
+				errorChan <- fmt.Errorf("newFileObject is nil")
+				return
+			}
+
+			savedData, err := h.FileService.Create(context.Background(), newFileObject)
+			if err != nil {
+				errorChan <- fmt.Errorf("failed to persist a new file: %w", err)
+				return
+			}
+
+			if savedData == nil {
+				errorChan <- fmt.Errorf("savedData is nil")
+				return
+			}
+
+			fileIDsChan <- savedData.GetID()
+		}(formFile)
+	}
+
+	go func() {
+		wg.Wait()
+		close(fileIDsChan)
+		close(errorChan)
+	}()
+
+	var fileIDs []uuid.UUID
+
+	for fileID := range fileIDsChan {
+		fileIDs = append(fileIDs, fileID)
+	}
+
+	select {
+	case err := <-errorChan:
+		if err != nil {
+			hasErrorOccurred = true
+			errOccurred = err
+		}
+	default:
+	}
+
+	if hasErrorOccurred {
+		http.Error(w, errOccurred.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Sample data to be written to JSON
-
-	// newFileUpload := FileUpload{
-	// 	Id:        uuid.New(),
-	// 	Name:      strings.Split(filePath, "/")[1],
-	// 	Path:      filePath,
-	// 	CreatedAt: time.Now(),
-	// }
-
-	// Read the existing JSON file
-	// jsonFileName := "file.json"
-	// var files []FileUpload
-
-	// if _, err := os.Stat(jsonFileName); err == nil {
-	// 	// File exists, read it
-
-	// 	jsonFileData, err := os.ReadFile(jsonFileName)
-	// 	if err != nil {
-	// 		http.Error(w, "Error reading json file: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Unmarshal the existing data into the Go slice
-	// 	err = json.Unmarshal(jsonFileData, &files)
-	// 	if err != nil {
-	// 		http.Error(w, "Error unmarshaling JSON: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// }
-
-	// // Append the new data
-	// files = append(files, newFileUpload)
-
-	// // Convert the Go data structure to JSON
-	// updatedJsonData, err := json.MarshalIndent(files, "", " ")
-	// if err != nil {
-	// 	http.Error(w, "Error marshalling  updated json data: "+err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// // Write the updated JSON data back to the file
-	// err = os.WriteFile(jsonFileName, updatedJsonData, 0644)
-	// if err != nil {
-	// 	http.Error(w, "Error writing updated json to file: "+err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	fmt.Fprint(w, savedData.GetID())
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(fileIDs)
 }
-func (h *FileHandler) DownloadsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	//Read from Json file and return back to the client
+func (h *FileHandler) GetFilesDataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	//jsonFileName := "file.json"
-	//var files []FileUpload
-
-	// if _, err := os.Stat(jsonFileName); err == nil {
-	// 	// File exists, read it
-
-	// 	jsonFileData, err := os.ReadFile(jsonFileName)
-	// 	if err != nil {
-	// 		http.Error(w, "Error reading json file: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Unmarshal the existing data into the Go slice
-	// 	err = json.Unmarshal(jsonFileData, &files)
-	// 	if err != nil {
-	// 		http.Error(w, "Error unmarshaling JSON: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-	//}
 	files, err := h.FileService.GetAll(context.Background())
 	if err != nil {
 		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
@@ -191,10 +173,39 @@ func (h *FileHandler) DownloadsHandler(w http.ResponseWriter, r *http.Request, _
 			Id:        file.GetID(),
 			Name:      file.GetName(),
 			Path:      file.GetPath(),
+			Type:      file.GetType(),
+			Size:      file.GetSize(),
+			Extension: file.GetExtension(),
 			CreatedAt: file.GetCreatedAt().Format("2006-01-02 15:04:05"),
 		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *FileHandler) DownloadFileByIDHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	parsedUUID, err := uuid.Parse(ps.ByName("id"))
+	if err != nil {
+		http.Error(w, "Error parsing UUID: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fileData, err := h.FileService.GetById(context.Background(), parsedUUID)
+	if err != nil {
+		http.Error(w, "Error retrieving file: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(fileData.GetPath())))
+
+	mergedWriter := w
+
+	err = utils.DownloadFileInParallel(fileData, mergedWriter)
+	if err != nil {
+		http.Error(w, "Error downloading file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

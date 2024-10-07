@@ -20,8 +20,10 @@
             padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
+            max-width: 500px;
+            max-height: 300px;
             width: 100%;
+            height: 100%;
             text-align: center;
         }
 
@@ -49,6 +51,7 @@
         }
 
         .file-name {
+            white-space: pre-wrap;
             margin-top: 1rem;
             font-size: 16px;
             color: #333;
@@ -81,14 +84,14 @@
 </head>
 <body>
     <div class="upload-container">
-        <h1>Upload Your File</h1>
+        <h1>Upload Your Files</h1>
         <form id="upload-form" action="/api/v1/upload" method="POST" enctype="multipart/form-data">
             <label for="file-upload" class="custom-file-upload">
-                Choose File
+                Choose Files
             </label>
-            <input id="file-upload" type="file" name="file">
-            <span class="file-name" id="file-name">No file chosen</span>
-            <div class="error-message" id="error-message">Please select a file before submitting.</div>
+            <input id="file-upload" type="file" name="files" multiple>
+            <div class="file-name" id="file-name">No files chosen</div>
+            <div class="error-message" id="error-message">Please select at least one file before submitting.</div>
             <br>
             <button type="submit" class="submit-btn">Upload</button>
         </form>
@@ -100,13 +103,18 @@
         const errorMessage = document.getElementById('error-message');
         const uploadForm = document.getElementById('upload-form');
 
-        // Update file name when a file is selected
+        // Update file names when files are selected
+        
         fileUpload.addEventListener('change', function() {
             if (fileUpload.files.length > 0) {
-                fileNameDisplay.textContent = fileUpload.files[0].name;
-                errorMessage.style.display = 'none';  // Hide error if a file is selected
+                let fileNames = [];
+                for (let i = 0; i < fileUpload.files.length; i++) {
+                    fileNames.push(fileUpload.files[i].name);
+                }
+                fileNameDisplay.textContent = fileNames.join('\n');
+                errorMessage.style.display = 'none';  // Hide error if files are selected
             } else {
-                fileNameDisplay.textContent = "No file chosen";
+                fileNameDisplay.textContent = "No files chosen";
             }
         });
 
